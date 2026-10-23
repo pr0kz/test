@@ -1,0 +1,25 @@
+{
+  "version": "2026.10.23",
+  "description": "OS hint 词表。规则见 README『规则体系』：按数组顺序匹配，先命中者优先，因此条目必须『具体 → 笼统』排列；只在整条 banner（小写化后）上做子串匹配，不参与协议判定。",
+  "os_hints": [
+    { "contains": ["kali"], "os": "Kali" },
+    { "contains": ["raspbian", "raspberry pi"], "os": "Raspbian" },
+    { "contains": ["ubuntu"], "os": "Ubuntu" },
+    { "contains": ["debian"], "os": "Debian" },
+    { "contains": ["centos"], "os": "CentOS" },
+    { "contains": ["rocky linux", "rockylinux"], "os": "Rocky Linux" },
+    { "contains": ["almalinux"], "os": "AlmaLinux" },
+    { "contains": ["red hat", "redhat", "rhel"], "os": "Red Hat" },
+    { "contains": ["fedora"], "os": "Fedora" },
+    { "contains": ["opensuse", "suse"], "os": "SUSE" },
+    { "contains": ["alpine"], "os": "Alpine" },
+    { "contains": ["arch linux", "archlinux"], "os": "Arch" },
+    { "contains": ["freebsd"], "os": "FreeBSD" },
+    { "contains": ["openbsd"], "os": "OpenBSD" },
+    { "contains": ["netbsd"], "os": "NetBSD" },
+    { "contains": ["solaris", "sunos"], "os": "Solaris" },
+    { "contains": ["synology"], "os": "Synology DSM" },
+    { "contains": ["esxi"], "os": "VMware ESXi" },
+    { "contains": ["win64", "win32", "windows", "microsoft"], "os": "Windows" }
+  ]
+}

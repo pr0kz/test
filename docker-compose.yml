@@ -1,0 +1,82 @@
+# 一键启动：docker compose up --build
+#
+# 网络收敛：只声明 expose，不写 ports。服务端因此不会被发布到宿主机，
+#           client 通过 compose 内置 DNS 用服务名 http://server:8080 访问它。
+#           backend 网络设为 internal（容器间互通、无外网出口），
+#           本机调试端口请看 docker-compose.debug.yml。
+# 启动依赖：client 依赖 server 的 *真实* 健康状态（service_healthy），
+#           而 server 的 healthcheck 是二进制自己发的 /health 请求。
+# 权限收紧：read_only 根文件系统 + 非 root(65532) + cap_drop ALL + no-new-privileges + 资源上限。
+name: banner-fingerprint
+
+x-runtime-hardening: &runtime-hardening
+  read_only: true
+  user: "65532:65532"
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  # 只读根文件系统下仍需要一个可写 /tmp（程序本身不落盘，这里只是兜底）。
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=4m
+  logging:
+    driver: json-file
+    options:
+      max-size: "1m"
+      max-file: "3"
+
+services:
+  server:
+    build:
+      context: .
+      target: server
+      args:
+        VERSION: ${BFP_VERSION:-1.0.0}
+    image: banner-fingerprint/server:${BFP_VERSION:-1.0.0}
+    <<: *runtime-hardening
+    environment:
+      BFP_LOG_LEVEL: ${BFP_LOG_LEVEL:-info}
+    expose:
+      - "8080"
+    healthcheck:
+      # scratch 镜像里没有 curl/wget/shell，健康检查由二进制自身的 -healthcheck 模式完成：
+      # 它向 127.0.0.1:8080/health 发一次真实 HTTP 请求，非 200 就退出码 1。
+      test: ["CMD", "/app/server", "-healthcheck", "-addr", ":8080"]
+      interval: 5s
+      timeout: 3s
+      retries: 4
+      start_period: 2s
+    restart: unless-stopped
+    stop_grace_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 128M
+    networks:
+      - backend
+
+  client:
+    build:
+      context: .
+      target: client
+      args:
+        VERSION: ${BFP_VERSION:-1.0.0}
+    image: banner-fingerprint/client:${BFP_VERSION:-1.0.0}
+    <<: *runtime-hardening
+    depends_on:
+      server:
+        condition: service_healthy
+    # 一次性 Job：读挂载进来的扫描数据 → 调服务端 → 打印识别结果后退出（exit 0）。
+    command: ["-input", "/data/input.json", "-server", "http://server:8080"]
+    volumes:
+      - ./examples:/data:ro
+    restart: "no"
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+    # 无外网出口：这两个服务都不需要访问互联网，收敛掉出站能力。
+    internal: true

@@ -1,0 +1,16 @@
+# 仅供本机调试的覆盖文件：把服务端端口绑到宿主机回环地址，方便 curl。
+#
+#   docker compose -f docker-compose.yml -f docker-compose.debug.yml up -d server
+#   curl -s localhost:8080/health
+#   curl -s -X POST localhost:8080/fingerprint -d @examples/input.json
+#
+# 注意：默认 compose 不发布任何端口，这里是有意的"显式例外"，且只绑 127.0.0.1。
+services:
+  server:
+    ports:
+      - "127.0.0.1:8080:8080"
+
+networks:
+  backend:
+    # 需要宿主机访问时打开外网出口（覆盖主文件里的 internal: true）。
+    internal: false

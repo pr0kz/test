@@ -1,0 +1,279 @@
+{
+  "version": "2026.10.23",
+  "description": "协议与产品指纹规则集。每条 probe 描述一个协议的证据（all/any/none）、基础置信度、端口先验与产品抽取规则。匹配器语义见 rules/rules.go，扩展方式见 README『如何新增一条规则』。",
+  "probes": [
+    {
+      "id": "ssh",
+      "protocol": "SSH",
+      "description": "RFC 4253 识别串：SSH-<protoversion>-<softwareversion> [comments]",
+      "any": [
+        { "type": "regex", "value": "^\\s*SSH-[0-9]\\.[0-9]+-" }
+      ],
+      "base_confidence": 0.7,
+      "ports": [22, 2222, 22222],
+      "products": [
+        { "regex": "(?i)win32-openssh[_-]([0-9][0-9a-z.\\-_]*)", "product": "Win32-OpenSSH", "version": "$1" },
+        { "regex": "(?i)openssh[_-]([0-9][0-9a-z.\\-_]*)", "product": "OpenSSH", "version": "$1" },
+        { "regex": "(?i)\\bdropbear[_-]?([0-9][0-9a-z.\\-_]*)", "product": "Dropbear", "version": "$1" },
+        { "regex": "(?i)\\blibssh[_-]?([0-9][0-9a-z.\\-_]*)", "product": "libssh", "version": "$1" },
+        { "regex": "(?i)\\bcisco-([0-9][0-9a-z.\\-_]*)", "product": "Cisco", "version": "$1" },
+        { "regex": "(?i)\\bromsshell[_-]?([0-9][0-9a-z.\\-_]*)", "product": "RomSShell", "version": "$1" },
+        { "regex": "(?i)\\bweonlydo[_-]?([0-9][0-9a-z.\\-_]*)", "product": "WeOnlyDo", "version": "$1" },
+        { "regex": "(?i)\\bopenssh\\b", "product": "OpenSSH" }
+      ]
+    },
+    {
+      "id": "http",
+      "protocol": "HTTP",
+      "description": "明文 HTTP 响应行。注意：443/8443/8888 端口给出明文 HTTP 是常态，因此判定完全不依赖端口。",
+      "any": [
+        { "type": "regex", "value": "(?i)^[\\r\\n]*HTTP/[0-9](?:\\.[0-9])?\\s+[0-9]{3}" },
+        { "type": "regex", "value": "(?i)^[\\r\\n]*HTTP/[0-9](?:\\.[0-9])?\\s*$" }
+      ],
+      "base_confidence": 0.7,
+      "ports": [80, 81, 88, 443, 8000, 8008, 8080, 8081, 8088, 8443, 8888, 9000, 9090, 9200],
+      "products": [
+        { "regex": "(?i)\\bnginx/([0-9][0-9a-z.\\-_]*)", "product": "nginx", "version": "$1" },
+        { "regex": "(?i)\\bopenresty/([0-9][0-9a-z.\\-_]*)", "product": "OpenResty", "version": "$1" },
+        { "regex": "(?i)\\b(?:apache|httpd)/([0-9][0-9a-z.\\-_]*)", "product": "Apache", "version": "$1" },
+        { "regex": "(?i)\\bmicrosoft-iis/([0-9][0-9a-z.\\-_]*)", "product": "Microsoft-IIS", "version": "$1" },
+        { "regex": "(?i)\\bjetty(?:/|[ (])([0-9][0-9a-z.\\-_]*)", "product": "Jetty", "version": "$1" },
+        { "regex": "(?i)\\b(?:apache-)?tomcat(?:/| )([0-9][0-9a-z.\\-_]*)", "product": "Tomcat", "version": "$1" },
+        { "regex": "(?i)\\bcoyote/([0-9][0-9a-z.\\-_]*)", "product": "Tomcat", "version": "$1" },
+        { "regex": "(?i)\\bgunicorn/([0-9][0-9a-z.\\-_]*)", "product": "gunicorn", "version": "$1" },
+        { "regex": "(?i)\\bwerkzeug/([0-9][0-9a-z.\\-_]*)", "product": "Werkzeug", "version": "$1" },
+        { "regex": "(?i)\\benvoy\\b", "product": "Envoy" },
+        { "regex": "(?i)\\bcaddy\\b", "product": "Caddy" },
+        { "regex": "(?i)\\bcloudflare\\b", "product": "Cloudflare" },
+        { "regex": "(?i)\\blitespeed\\b", "product": "LiteSpeed" },
+        { "regex": "(?i)\\bkestrel\\b", "product": "Kestrel" },
+        { "regex": "(?i)\\bnginx\\b", "product": "nginx" },
+        { "regex": "(?i)\\bapache\\b", "product": "Apache" }
+      ]
+    },
+    {
+      "id": "tls",
+      "protocol": "TLS",
+      "description": "TLS 记录头：content-type 0x16(handshake)/0x15(alert)/0x17(application-data) + version 0x0300-0x0304。服务端只回二进制时唯一可判的证据。",
+      "any": [
+        { "type": "regex", "value": "^\\x16\\x03[\\x00-\\x04][\\s\\S]{3,}" },
+        { "type": "regex", "value": "^\\x15\\x03[\\x00-\\x04][\\s\\S]{3,}" },
+        { "type": "regex", "value": "^\\x17\\x03[\\x00-\\x04][\\s\\S]{3,}" }
+      ],
+      "base_confidence": 0.7,
+      "ports": [443, 465, 636, 853, 993, 995, 8443, 9443],
+      "products": []
+    },
+    {
+      "id": "mysql",
+      "protocol": "MySQL",
+      "description": "握手包结构：3 字节 payload 长度 + 1 字节序号(0) + 0x0a(协议版本) + NUL 结尾的 server version。二进制正则一次命中，版本号直接来自结构定位。",
+      "any": [
+        { "type": "regex", "value": "(?s)^[\\s\\S]{3}\\x00\\x0a([0-9][0-9a-zA-Z.\\-]*)\\x00" }
+      ],
+      "base_confidence": 0.72,
+      "ports": [3306, 3307, 33060],
+      "products": [
+        { "regex": "(?i)mariadb", "product": "MariaDB", "weight": 0.12 },
+        { "regex": "(?s)^[\\s\\S]{3}\\x00\\x0a([0-9][0-9a-zA-Z.\\-]*)\\x00", "product": "MySQL", "version": "$1" }
+      ]
+    },
+    {
+      "id": "redis",
+      "protocol": "Redis",
+      "description": "RESP 响应行：+PONG / -ERR / -NOAUTH / $<len> / :<int>；也覆盖 INFO 回显。协议可判、版本通常拿不到（故 base 略低、产品权重为 0）。",
+      "any": [
+        { "type": "regex", "value": "(?i)^-(?:err|noauth|wrongtype|denied|loading|busy|misconf|execabort|unknown command)" },
+        { "type": "regex", "value": "(?i)^\\+pong" },
+        { "type": "regex", "value": "^\\+ok\\s*$" },
+        { "type": "regex", "value": "^\\$[0-9]+\\r?\\n" },
+        { "type": "regex", "value": "^:[0-9]+\\r?\\n" },
+        { "type": "regex", "value": "(?i)^# server\\s" },
+        { "type": "regex", "value": "(?i)^redis_version[:=]" }
+      ],
+      "base_confidence": 0.65,
+      "ports": [6379, 6380, 16379],
+      "default_product": "Redis",
+      "products": [
+        { "regex": "(?i)redis_version[:=]([0-9][0-9a-z.\\-]*)", "product": "Redis", "version": "$1" },
+        { "regex": "(?i)\\bredis\\b", "product": "Redis", "weight": 0 }
+      ]
+    },
+    {
+      "id": "ftp",
+      "protocol": "FTP",
+      "description": "RFC 959 欢迎行 220/120。必须排除 SMTP/IMAP/POP3（它们也用 220/+OK），否则会互相抢分。",
+      "any": [
+        { "type": "regex", "value": "^\\s*(?:220|120)[ -]" }
+      ],
+      "none": [
+        { "type": "regex", "value": "(?i)(?:esmtp|smtp|imap|pop3)" }
+      ],
+      "base_confidence": 0.7,
+      "ports": [21, 2121, 990, 21021],
+      "products": [
+        { "regex": "(?i)proftpd(?:[ /]([0-9][0-9a-z.\\-_]*))?", "product": "ProFTPD", "version": "$1" },
+        { "regex": "(?i)\\(?vsftpd[ _]([0-9][0-9a-z.\\-_]*)", "product": "vsftpd", "version": "$1" },
+        { "regex": "(?i)pure-ftpd", "product": "Pure-FTPd" },
+        { "regex": "(?i)filezilla server(?:\\(?([0-9][0-9a-z.\\-_]*))?", "product": "FileZilla Server", "version": "$1" },
+        { "regex": "(?i)\\bserv-u\\b", "product": "Serv-U" },
+        { "regex": "(?i)wu-ftpd(?:[ /]([0-9][0-9a-z.\\-_]*))?", "product": "wu-ftpd", "version": "$1" },
+        { "regex": "(?i)microsoft ftp service", "product": "Microsoft FTP Service" },
+        { "regex": "(?i)\\bglftpd\\b", "product": "glFTPd" },
+        { "regex": "(?i)\\bftpd\\b", "product": "ftpd" }
+      ]
+    },
+    {
+      "id": "smtp",
+      "protocol": "SMTP",
+      "description": "220 欢迎行 + ESMTP/SMTP 关键字（与 FTP 的 220 区分开）。",
+      "any": [
+        { "type": "regex", "value": "(?i)^220[\\s\\S]{0,200}(?:esmtp|smtp)" },
+        { "type": "regex", "value": "(?i)^220[\\s\\S]{0,200}(?:postfix|exchange|sendmail|exim|hmailserver|mailenable)" },
+        { "type": "regex", "value": "(?i)^220[\\s\\S]{0,80}mail service ready" }
+      ],
+      "base_confidence": 0.72,
+      "ports": [25, 465, 587, 2525],
+      "products": [
+        { "regex": "(?i)\\bpostfix\\b", "product": "Postfix" },
+        { "regex": "(?i)\\bexim\\b", "product": "Exim" },
+        { "regex": "(?i)\\bsendmail\\b", "product": "Sendmail" },
+        { "regex": "(?i)microsoft esmtp mail service", "product": "Microsoft Exchange" },
+        { "regex": "(?i)\\bhmailserver\\b", "product": "hMailServer" },
+        { "regex": "(?i)\\bmailenable\\b", "product": "MailEnable" }
+      ]
+    },
+    {
+      "id": "pop3",
+      "protocol": "POP3",
+      "description": "+OK 欢迎行必须带 pop3/dovecot 等关键字，避免与 Redis 的 +OK 冲突。",
+      "any": [
+        { "type": "regex", "value": "(?i)^\\+ok[\\s\\S]{0,160}pop3" }
+      ],
+      "base_confidence": 0.72,
+      "ports": [110, 995],
+      "products": [
+        { "regex": "(?i)\\bdovecot\\b", "product": "Dovecot" },
+        { "regex": "(?i)\\bcourier\\b", "product": "Courier" },
+        { "regex": "(?i)\\bqpopper\\b", "product": "Qpopper" },
+        { "regex": "(?i)\\bmailenable\\b", "product": "MailEnable" }
+      ]
+    },
+    {
+      "id": "imap",
+      "protocol": "IMAP",
+      "description": "* OK / * PREAUTH 欢迎行 + imap 关键字。",
+      "any": [
+        { "type": "regex", "value": "(?i)^\\* ok[\\s\\S]{0,200}imap" },
+        { "type": "regex", "value": "(?i)^\\* preauth[\\s\\S]{0,200}" }
+      ],
+      "base_confidence": 0.72,
+      "ports": [143, 220, 993],
+      "products": [
+        { "regex": "(?i)\\bdovecot\\b", "product": "Dovecot" },
+        { "regex": "(?i)\\bcyrus\\b", "product": "Cyrus" },
+        { "regex": "(?i)\\bcourier\\b", "product": "Courier" }
+      ]
+    },
+    {
+      "id": "memcached",
+      "protocol": "Memcached",
+      "description": "文本协议：VERSION <ver> / ERROR。",
+      "any": [
+        { "type": "regex", "value": "(?i)^version[ ]([0-9][0-9a-z.\\-]*)" },
+        { "type": "regex", "value": "(?i)^error[\\r\\n]" }
+      ],
+      "base_confidence": 0.7,
+      "ports": [11211, 11212],
+      "products": [
+        { "regex": "(?i)^version[ ]([0-9][0-9a-z.\\-]*)", "product": "memcached", "version": "$1" }
+      ]
+    },
+    {
+      "id": "mongodb",
+      "protocol": "MongoDB",
+      "description": "对 HTTP 端口发二进制探测时的特征回显（驱动端口上的经典提示页）。",
+      "any": [
+        { "type": "regex", "value": "(?i)you are trying to access mongodb" },
+        { "type": "regex", "value": "(?i)mongodb over http" },
+        { "type": "regex", "value": "(?i)not talking to mongodb over http" }
+      ],
+      "base_confidence": 0.8,
+      "ports": [27017, 27018, 27019],
+      "products": [
+        { "regex": "(?i)mongodb", "product": "MongoDB" }
+      ]
+    },
+    {
+      "id": "elasticsearch",
+      "protocol": "Elasticsearch",
+      "description": "根路径 JSON 的 tagline / cluster_name / number 字段。",
+      "any": [
+        { "type": "regex", "value": "(?i)you know, for search" },
+        { "type": "regex", "value": "(?i)\"cluster_name\"\\s*:" },
+        { "type": "regex", "value": "(?i)\"tagline\"\\s*:" }
+      ],
+      "base_confidence": 0.8,
+      "ports": [9200, 9300],
+      "products": [
+        { "regex": "(?i)\"number\"\\s*:\\s*\"([0-9][0-9a-z.\\-]*)\"", "product": "Elasticsearch", "version": "$1" },
+        { "regex": "(?i)elasticsearch", "product": "Elasticsearch" }
+      ]
+    },
+    {
+      "id": "postgres",
+      "protocol": "PostgreSQL",
+      "description": "ErrorResponse 报文：'E' + 长度 + 'SFATAL'；或纯文本 FATAL 行。",
+      "any": [
+        { "type": "regex", "value": "^E\\x00\\x00\\x00[\\s\\S]{0,8}(?:FATAL|PANIC)" },
+        { "type": "regex", "value": "(?i)^FATAL:[ ]+password authentication failed" }
+      ],
+      "base_confidence": 0.78,
+      "ports": [5432, 5433],
+      "products": [
+        { "regex": "(?i)postgresql[ /]([0-9][0-9a-z.\\-]*)", "product": "PostgreSQL", "version": "$1" },
+        { "regex": "(?i)\\bpostgres\\b", "product": "PostgreSQL" }
+      ]
+    },
+    {
+      "id": "vnc",
+      "protocol": "VNC",
+      "description": "RFB 协议版本串：RFB 003.008",
+      "any": [
+        { "type": "regex", "value": "(?i)^RFB ([0-9]{3}\\.[0-9]{3})" }
+      ],
+      "base_confidence": 0.82,
+      "ports": [5900, 5901, 5902, 5903],
+      "products": [
+        { "regex": "(?i)\\brealvnc\\b", "product": "RealVNC" },
+        { "regex": "(?i)\\btightvnc\\b", "product": "TightVNC" },
+        { "regex": "(?i)\\btigervnc\\b", "product": "TigerVNC" },
+        { "regex": "(?i)\\bultravnc\\b", "product": "UltraVNC" },
+        { "regex": "(?i)^RFB ([0-9]{3}\\.[0-9]{3})", "product": "VNC", "version": "$1", "weight": 0 }
+      ]
+    },
+    {
+      "id": "telnet",
+      "protocol": "Telnet",
+      "description": "首字节即 IAC(0xff) + 协商命令(0xfb-0xfe)。",
+      "any": [
+        { "type": "regex", "value": "^\\xff[\\xfb-\\xfe]" }
+      ],
+      "base_confidence": 0.7,
+      "ports": [23, 2323],
+      "products": []
+    },
+    {
+      "id": "smb",
+      "protocol": "SMB",
+      "description": "NetBIOS 会话首包中的 \\xffSMB 魔术字。",
+      "any": [
+        { "type": "regex", "value": "^\\x00\\x00\\x00[\\s\\S]\\xffSMB" },
+        { "type": "hex", "value": "ff534d42" }
+      ],
+      "base_confidence": 0.8,
+      "ports": [139, 445],
+      "products": []
+    }
+  ]
+}

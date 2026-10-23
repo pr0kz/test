@@ -1,0 +1,13 @@
+# 只把构建真正需要的东西送进 daemon：源码 + 规则 + 模块文件。
+# .git 必须排除，否则每次 commit 都会让所有 COPY 层缓存失效。
+.git
+.gitignore
+bin/
+*.exe
+*.test
+*.out
+.idea/
+.vscode/
+README.md
+Makefile
+docker-compose*.yml
